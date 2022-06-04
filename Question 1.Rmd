@@ -1,0 +1,78 @@
+---
+title: "Question 1"
+author: "Maxwell Nicely"
+date: '2022-06-04'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+We begin by importing the necessary libraries for the analysis
+```{r}
+library(ipumsr)
+library(tidyverse)
+library(fixest)
+library(lubridate)
+```
+
+First we will read in the IPMUS data
+```{r}
+ddi <- read_ipums_ddi('cps_00001.xml')
+data <- read_ipums_micro(ddi)
+```
+
+Since we are only interested in retail info, we can filter out the entries by the industry type. And since are looking at information about employment, we can filter out those individuals who are not in the labor force.
+```{r}
+#filter out industries
+data <- data %>% filter(IND > 4670 & IND < 5790)
+
+#filter out not in labor force
+data <- data %>% filter(EMPSTAT < 30)
+```
+
+To make our future commands easier, we will now create a date value by combining the `YEAR` and `MONTH` values.
+```{r}
+data <- data %>% mutate(DATE = ym (paste0(YEAR, MONTH)))
+```
+
+Now there are a few date-based variables we have to make, such as a binary variable for months that were during the pandemic versus not, and one for months during Christmas season or not.
+```{r}
+#creating covid variable
+data <- data %>% mutate(COVID = (DATE > '2020-03-01'))
+
+#creating Christmas variable
+data <- data %>% mutate(XMAS = MONTH >= 11)
+```
+
+Now we need to create a categorical variable for `RACE`, since the original data gives a numerical value for one's race.
+```{r}
+data$race <- as.factor(ifelse(data$RACE == 100, 'White',
+                           ifelse(data$RACE == 200, 'Black',
+                           ifelse(data$RACE == 300, 'American Indian/Aleut/Eskimo',
+                           ifelse(data$RACE >= 650 & data$RACE <= 652, 'Asian or Pacific Islander',
+                           ifelse(data$RACE == 700, 'Other (single race)',
+                           ifelse(data$RACE >= 801, 'Two or More',NA)))))))
+```
+
+Last, we need to create an unemployment rate variable.
+```{r}
+data <- data %>%
+  group_by(DATE) %>%
+  mutate(UnemployRate = mean(EMPSTAT %in% c(20,21,22)))
+```
+
+Now that we have created all the variables we need, we can look at a plot of our data.
+```{r}
+ggplot(data, aes(DATE, UnemployRate)) + geom_point()
+```
+
+As we can see from the graph, there seems to be a sharp increase in the unemployment rate around April 2020.
+
+And now we can run our regression.
+```{r}
+analysis <- feols(UnemployRate ~ DATE + COVID + AGE + race + XMAS, data = data)
+etable(analysis)
+```
+
