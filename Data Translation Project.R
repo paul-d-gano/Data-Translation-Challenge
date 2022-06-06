@@ -67,7 +67,7 @@ sumtable(bindata)
 #View bindata in order to find the bin located at the intercept in which Covid Started which was 2020-03-01
 view(bindata)
 #Use the emp_bins designated for the 2020-03-01 date variable "0.952,0.955" to explain the cutoff
-bindata %>% ggplot(aes(x = emp_bins)) + geom_bar() + geom_vline(xintercept = '(0.952,0.955]') + theme(axis.text.x = element_blank())
+bindata %>% ggplot(aes(x = emp_bins)) + geom_bar() + labs(x = "Employed Rate Bins") + geom_vline(xintercept = '(0.952,0.955]') + theme(axis.text.x = element_blank())
 
 # Step 5: rdrobust -> will select a window and weighting kernel to weight observations more near the cutoff
 #mutate two new variables called pre-covid and post-covid to access the effect of covid on employment rate
@@ -101,8 +101,9 @@ etable(postvacs, postvacsind)
 ## decrease in employment rate by 2.6%.In novacstreat, we are looking between when COVID-19 happen and before the vaccination 
 ## was released, to see the impact of COVID-19 employment which has a 5% decrease. In postvacs, we see that there is an overall 
 ## positive increase in terms of employment rate after vaccination was released on 2021, thus an increase by 2.2% on employment
-## rate. We can see in the last two feols, the other industry benefit more as well as survived better through covid.
+## rate.
 
 # Step 6: take a look at the ggplot again with linear lines explaining the effect
-ggplot(treatment, aes(x = date, y = emp_rate, color = industry)) + geom_point() + geom_vline(xintercept = as.Date('2020-03-01')) + 
-  theme(axis.text.x = element_blank()) + geom_smooth(aes(group = precovid), method = 'lm', se = FALSE)
+ggplot(treatment, aes(x = date, y = emp_rate, color = industry)) + geom_point() + labs(y = "Employment Rate", x = "Date") + 
+  geom_vline(xintercept = as.Date('2020-03-01')) + theme(axis.text.x = element_blank()) + 
+  geom_smooth(aes(group = precovid), method = 'lm', se = FALSE)
