@@ -119,7 +119,7 @@ postvacsind <- feols(emp_rate ~ postvacs*industry, data = treatment)
 etable(novacsind, postvacsind)
 ```
 #### Explanation on regression: 
-In novacind and postvacsind, the effect on non-retail industry and retail industry after COVID-19 is 2%, and after the vaccine is 1% thus there isn't much change between retail and non-retail industry. To sum it all, the employment rate for the retail is not much different with non-retail industry
+In novacind and postvacsind, the effect on non-retail industry and retail industry after COVID-19 is 2%, and after the vaccine is 1% thus the change between the retail and non-retail industry subjectively is quite large because the non-retail industry growth and employment rate is double that of the retail employment rate.
 
 ## Visualization 
 Taking a look at the visualization again with linear lines explaining the effect
