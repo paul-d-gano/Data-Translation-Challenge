@@ -60,19 +60,33 @@ Last, we need to create an unemployment rate variable.
 ```{r}
 data <- data %>%
   group_by(DATE) %>%
-  mutate(UnemployRate = mean(EMPSTAT %in% c(20,21,22)))
+  mutate(UnemploymentRate = mean(EMPSTAT %in% c(20,21,22)))
 ```
 
 Now that we have created all the variables we need, we can look at a plot of our data.
 ```{r}
-ggplot(data, aes(DATE, UnemployRate)) + geom_point()
+plot <- ggplot(data, aes(DATE, UnemploymentRate*100)) + geom_point() + geom_vline(xintercept = as.numeric(as.Date('2020-03-15')))
+
+plot + ggtitle("Retail Unemployment Rate Over Time (2019-2022)") + xlab('Date') +ylab('Unemployment Rate (in percentage values)')
 ```
 
 As we can see from the graph, there seems to be a sharp increase in the unemployment rate around April 2020.
 
 And now we can run our regression.
 ```{r}
-analysis <- feols(UnemployRate ~ DATE + COVID + AGE + race + XMAS, data = data)
+analysis <- feols(UnemploymentRate ~ DATE + COVID + AGE + race + XMAS, data = data)
 etable(analysis)
 ```
+From our regression, the time after covid began (from April 2020 and on in our data) had an increase of 6.51% in the unemployment rate. Age is associated with a 1.49e-5 increase in unemployment. While it is statistically significant, it is a very small increase.
 
+```{r}
+analysis1 <- feols(UnemploymentRate ~ DATE + AGE + XMAS + COVID + race + COVID:race, data = data)
+etable(analysis1)
+```
+Similar result from previous one for covid impact. Interesting decrease in unemployment rate from `COVIDTRUE x raceAsianorPAcificIslander` and `COVIDTRUE x raceBlack`.
+
+```{r}
+analysis2 <- feols(UnemploymentRate ~ DATE + race + XMAS + COVID + AGE + COVID:AGE, data = data)
+etable(analysis2)
+```
+Similar impact from covid as other two. After covid, we see a slight increase in the impact of `AGE` on the unemployment rate.
