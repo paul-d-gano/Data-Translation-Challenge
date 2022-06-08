@@ -64,7 +64,7 @@ emp_rate_by_month <- emp_rate_by_month %>% mutate(industry= as.factor(industry))
 
 levels(emp_rate_by_month$industry) <- list("Others" = "0",       
                                           "Retail" = "1")
-emp_rate_by_month %>% ggplot(aes(x = date, y = emp_rate, color = industry)) + geom_point() + labs(y = "Employed Rate", x = "Date") + 
+emp_rate_by_month %>% ggplot(aes(x = date, y = emp_rate, color = industry)) + geom_point() + labs(y = "Employment Rate", x = "Date") + 
   geom_vline(xintercept = as.Date("2020-03-01"))
 ```
 
@@ -142,3 +142,5 @@ treatment %>% ggplot(aes(x = date, y = emp_rate, color = industry)) + geom_point
 
 ## Conclusion
 Overall, this suggests that COVID-19 really took a hard impact on employment when the lockdowns happen and people started getting laid off. However, after the vaccine was released and the economy started improving, we see that the employment rate just keeps on increasing no matter the industry as both retail and non-retail industry move in a similar direction. Although the biggest difference is that the employment rate reflected by the impact of COVID has hit the retail industry compared to that of the other industries. This would mean that as of currently the people employed in the retail industry are behind in terms of economic power and monetary value due to lower employment rate compared to people employed in other industries.
+
+
