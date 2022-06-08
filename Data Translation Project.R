@@ -105,5 +105,4 @@ etable(postvacs, postvacsind)
 
 # Step 6: take a look at the ggplot again with linear lines explaining the effect
 ggplot(treatment, aes(x = date, y = emp_rate, color = industry)) + geom_point() + labs(y = "Employment Rate", x = "Date") + 
-  geom_vline(xintercept = as.Date('2020-03-01')) + theme(axis.text.x = element_blank()) + 
-  geom_smooth(aes(group = precovid), method = 'lm', se = FALSE)
+  geom_vline(xintercept = as.Date('2020-03-01')) + geom_smooth(aes(group = precovid), method = 'lm', se = FALSE)
