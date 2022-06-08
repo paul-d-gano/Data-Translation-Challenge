@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Introduction
 
-Retail needs to worry about who has money to spend - what has changed about who is working and earning money?
+We will be asking the question: **"Retail needs to worry about who has money to spend - what has changed about who is working and earning money?"** Here we will look into the employment rate when COVID-19 happen and what happened to the retail and non-retail industry. From there, we will further discuss who has money to spend as this is a factor whether or not an individual is employed or not. 
 
 ### Libraries and Data
 ```{r}
@@ -57,25 +57,33 @@ emp_rate_by_month <- emp_rate_by_month %>%
 ```
 
 ## Visualization 
-Visualize the difference in the court of employed and unemployed people between those of the different industries. 
+Visualize the difference in the court of employed and unemployed people between those of the different industries. Since we want to see the impact of retail, we will group 'Others' as non-retail industries. The cutoff will be March 2020, when the COVID-19 happen.
+
 ```{r, echo=FALSE}
+emp_rate_by_month <- emp_rate_by_month %>% mutate(industry= as.factor(industry))
+
+levels(emp_rate_by_month$industry) <- list("Others" = "0",       
+                                          "Retail" = "1")
 emp_rate_by_month %>% ggplot(aes(x = date, y = emp_rate, color = industry)) + geom_point() + labs(y = "Employed Rate", x = "Date") + 
   geom_vline(xintercept = as.Date("2020-03-01"))
 ```
+### Explanation on visualization:
+Here we see that there is a steep decrease in employment rate when COVID-19 happen in March 2020, that causes a drop in employment. It seems like in Retail industry, it is actually doing worse compared to the other industry as we see the average on employment rate after COVID-19 hits is around 0.86, whereas retail industry's employment rate drops as far as to 0.81. 
+
 
 Creating bins of the Emp_Rate_By_Month
 ```{r}
 bindata <- emp_rate_by_month  %>% mutate(emp_bins = cut(emp_rate, breaks = 36))
 ```
 
-By viewing bindata, we get to find the bin located at the intercept in which COVID Started which was 2020-03-01.Using the emp_bins designated for the 2020-03-01 date variable "0.952,0.955" to explain the cutoff
+Below is the graph to show the distribution of employment rate. Using March 2020 as the cutoff, the *xintercept = '(0.952,0.955]'*. As of before COVID-19, we see that there is a stagnant or relatively flat distribution on the employment rate (count). And even after COVID-19, the data does not show discontinuity in the distribution where we see a huge jump. Thus, the employment rate variables are not manipulated - where some people may not report their employment status.
 
 ```{r, echo=FALSE}
 bindata %>% ggplot(aes(x = emp_bins)) + geom_bar() + labs(x = "Employed Rate Bins") + geom_vline(xintercept = '(0.952,0.955]') + theme(axis.text.x = element_blank())
 ```
 
 ## Regression: Pre-COVID and Post-COVID
-This will help select a window and weighting kernel to weight observations more near the cutoff. This is done by mutating two new variables called pre-covid and post-covid to access the effect of covid on employment rate
+This will help select a window and weighting kernel to weight observations more near the cutoff. This is done by mutating two new variables called *pre-COVID* and *post-COVID* to access the effect of COVID on employment rate.
 
 ```{r}
 treatment <- bindata %>% mutate(precovid = date < as.Date("2020-03-01"), postcovid = date > as.Date("2020-03-01"))
@@ -88,9 +96,9 @@ etable(precovid, postcovid, vcov = 'hetero')
 ``` 
 
 #### Explanation on regression: 
-In precovid, we are looking at the impact of before COVID-19 happen which is before March 2020, where we see an increase in employment rate by 2.7%. 
+In *precovid*, we are looking at the impact of before COVID-19 happen which is before March 2020, where we see an increase in employment rate by 2.7%. 
 
-In postcovid, we are looking at how the overall impact of COVID-19 on employment rate. After March 2020, we see there is a decrease in employment rate by 2.6%. 
+In *postcovid*, we are looking at how the overall impact of COVID-19 on employment rate. After March 2020, we see there is a decrease in employment rate by 2.6%. 
 
 ## Regression: Before and After Vaccines 
 Now we want to look at the effect COVID-19 had on employment rate during when vaccines did not exist and how the employment rate improves since the launch of vaccines. 
@@ -105,13 +113,14 @@ etable(covidnovacs, postvacs)
 
 ```
 #### Explanation on regression: 
-In novacstreat, we are looking between when COVID-19 happen and before the vaccination was released, to see the impact of COVID-19 employment which has a 5% decrease. 
+In *novacstreat*, we are looking between when COVID-19 happen and before the vaccination was released, to see the impact of COVID-19 employment which has a 5% decrease. 
 
-In postvacs, we see that there is an overall positive increase in terms of employment rate after vaccination was released on early 2021, thus an increase by 2.2% on employment rate. 
+In *postvacs*, we see that there is an overall positive increase in terms of employment rate after vaccination was released on early 2021, thus an increase by 2.2% on employment rate. 
 
 
 ## Regression: Retail Industries 
-Now we want to look further at whether or not non-retail industries took a harder hit from Covid and benefited from vaccines. 
+Now we want to look further at whether or not non-retail industries took a harder hit from COVID and benefited from vaccines. 
+
 ```{r}
 novacsind <- feols(emp_rate ~ postcovid*industry, data = novacstreat)
 
@@ -119,55 +128,17 @@ postvacsind <- feols(emp_rate ~ postvacs*industry, data = treatment)
 etable(novacsind, postvacsind)
 ```
 #### Explanation on regression: 
-In novacind and postvacsind, the effect on non-retail industry and retail industry after COVID-19 is 2%, and after the vaccine is 1% thus the change between the retail and non-retail industry subjectively is quite large because the non-retail industry growth and employment rate is double that of the retail employment rate.
+In *novacind* and *postvacsind*, the effect on non-retail industry and retail industry after COVID-19 is 2%, and after the vaccine is 1% thus the change between the retail and non-retail industry subjectively is quite large because the non-retail industry growth and employment rate is double that of the retail employment rate. 
 
 ## Visualization 
-Taking a look at the visualization again with linear lines explaining the effect
+Taking a look at the visualization again with linear lines explaining the effect. We see that from the graph below, the employment rate is stagnant throughout the year before March 2020. As of after March 2020, we see that employment rate for both Retail and non-retail industry keeps on increasing throughout the year. 
 ```{r, echo=FALSE}
-ggplot(treatment, aes(x = date, y = emp_rate, color = industry)) + geom_point() + labs(y = "Employment Rate", x = "Date") + 
-  geom_vline(xintercept = as.Date('2020-03-01')) + theme(axis.text.x = element_blank()) + 
-  geom_smooth(aes(group = precovid), method = 'lm', se = FALSE)
+treatment %>% ggplot(aes(x = date, y = emp_rate, color = industry)) + geom_point() + labs(y = "Employment Rate", x = "Date") +
+  geom_vline(xintercept = as.Date('2020-03-01')) + geom_smooth(aes(group = precovid), method = 'lm', se = FALSE)
 ```
 
 ## Conclusion
-Overall, this suggest that COVID-19 really took a hard impact on employment when the lockdowns happen and people started getting laid off. However, after the vaccine was released and the economy have improved, we see that the employment rate just keeps on increasing no matter the industry are as both retail and non-retail industry move in a similar direction. 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Overall, this suggests that COVID-19 really took a hard impact on employment when the lockdowns happen and people started getting laid off. However, after the vaccine was released and the economy started improving, we see that the employment rate just keeps on increasing no matter the industry as both retail and non-retail industry move in a similar direction. Although the biggest difference is that the employment rate reflected by the impact of COVID has hit the retail industry compared to that of the other industries. This would mean that as of currently the people employed in the retail industry are behind in terms of economic power and monetary value due to lower employment rate compared to people employed in other industries.
 
 
 
