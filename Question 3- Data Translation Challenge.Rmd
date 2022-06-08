@@ -35,7 +35,7 @@ data <- read_ipums_micro(ddi)
 cleandt <- data %>% dplyr :: select(YEAR, MONTH, EMPSTAT, OCC, IND, UHRSWORK1, WKSTAT)
 cleandt <- cleandt %>% drop_na()
 cleandt <- cleandt %>% mutate(HRSMAIN = UHRSWORK1)
-# We filter for Employment Status at 10 (employed) and 20 (unemployed)
+# We filter for Employment Status at 10 (employed) and 20:22 (unemployed)
 cleandt <- cleandt %>% filter(EMPSTAT %in% c(10,20:22))
 # Denotes for the different months in the years of 2019 to 2022
 cleandt <- cleandt %>% mutate(date = ym(paste(YEAR,MONTH)))
@@ -67,12 +67,13 @@ levels(emp_rate_by_month$industry) <- list("Others" = "0",
 emp_rate_by_month %>% ggplot(aes(x = date, y = emp_rate, color = industry)) + geom_point() + labs(y = "Employed Rate", x = "Date") + 
   geom_vline(xintercept = as.Date("2020-03-01"))
 ```
-### Explanation on visualization:
+
+#### Explanation on Visualization:
 Here we see that there is a steep decrease in employment rate when COVID-19 happen in March 2020, that causes a drop in employment. It seems like in Retail industry, it is actually doing worse compared to the other industry as we see the average on employment rate after COVID-19 hits is around 0.86, whereas retail industry's employment rate drops as far as to 0.81. 
 
 
-Creating bins of the Emp_Rate_By_Month
 ```{r}
+# Creating bins of the Emp_Rate_By_Month
 bindata <- emp_rate_by_month  %>% mutate(emp_bins = cut(emp_rate, breaks = 36))
 ```
 
@@ -95,7 +96,7 @@ postcovid <- feols(emp_rate ~ postcovid, data = treatment)
 etable(precovid, postcovid, vcov = 'hetero')
 ``` 
 
-#### Explanation on regression: 
+#### Explanation on Regression: 
 In *precovid*, we are looking at the impact of before COVID-19 happen which is before March 2020, where we see an increase in employment rate by 2.7%. 
 
 In *postcovid*, we are looking at how the overall impact of COVID-19 on employment rate. After March 2020, we see there is a decrease in employment rate by 2.6%. 
@@ -112,7 +113,8 @@ postvacs <- feols(emp_rate ~ postvacs, data = treatment)
 etable(covidnovacs, postvacs)
 
 ```
-#### Explanation on regression: 
+
+#### Explanation on Regression: 
 In *novacstreat*, we are looking between when COVID-19 happen and before the vaccination was released, to see the impact of COVID-19 employment which has a 5% decrease. 
 
 In *postvacs*, we see that there is an overall positive increase in terms of employment rate after vaccination was released on early 2021, thus an increase by 2.2% on employment rate. 
@@ -127,7 +129,8 @@ novacsind <- feols(emp_rate ~ postcovid*industry, data = novacstreat)
 postvacsind <- feols(emp_rate ~ postvacs*industry, data = treatment)
 etable(novacsind, postvacsind)
 ```
-#### Explanation on regression: 
+
+#### Explanation on Regression: 
 In *novacind* and *postvacsind*, the effect on non-retail industry and retail industry after COVID-19 is 2%, and after the vaccine is 1% thus the change between the retail and non-retail industry subjectively is quite large because the non-retail industry growth and employment rate is double that of the retail employment rate. 
 
 ## Visualization 
@@ -139,7 +142,3 @@ treatment %>% ggplot(aes(x = date, y = emp_rate, color = industry)) + geom_point
 
 ## Conclusion
 Overall, this suggests that COVID-19 really took a hard impact on employment when the lockdowns happen and people started getting laid off. However, after the vaccine was released and the economy started improving, we see that the employment rate just keeps on increasing no matter the industry as both retail and non-retail industry move in a similar direction. Although the biggest difference is that the employment rate reflected by the impact of COVID has hit the retail industry compared to that of the other industries. This would mean that as of currently the people employed in the retail industry are behind in terms of economic power and monetary value due to lower employment rate compared to people employed in other industries.
-
-
-
-
