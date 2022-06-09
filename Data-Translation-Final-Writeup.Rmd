@@ -152,8 +152,8 @@ In 2019 we can see that retail is slightly higher than the average unemployment 
 ### Regressions Models
 
 ```{r}
-Q2analysis1 <- feols(Q2data, unemployment_rate~treated + retail + treated*retail)
-etable(Q2analysis1)
+Q2analysis1 <- feols(Q2data, unemployment_rate~treated + retail + treated*retail, vcov='hetero')
+etable(Q2analysis1, vcov='hetero')
 ```
 The unemployment rate for retail industries post covid was .01% greater compared to other industries.
 
@@ -161,8 +161,8 @@ From the above regression results we see that although the retail sector was hit
 
 ```{r}
 Q2data2 <- mutate(Q2data, treated=(Date > '2020-03-01' & Date < '2020-06-01'))
-Q2analysis2 <- feols(Q2data2, unemployment_rate~treated + retail + treated*retail)
-etable(Q2analysis2)
+Q2analysis2 <- feols(Q2data2, unemployment_rate~treated + retail + treated*retail, vcov='hetero')
+etable(Q2analysis2, vcov='hetero')
 ```
 For the immediate months after COVID-19 retail industries had a 2.8% higher unemployment rate than other industries.
 
@@ -171,8 +171,8 @@ We may also be interested in a comparison between retail (an industry we expect 
 
 ```{r}
 Q2data3 <- filter(Q2data2, indname %in% c('Retail Trade', 'Information', 'Educational Services, and Health Care and Social Assistance', 'Finance and Insurance, and Real Estate and Rental and Leasing'))
-Q2analysis3 <- feols(Q2data3, unemployment_rate~retail + treated + treated*retail)
-etable(Q2analysis3)
+Q2analysis3 <- feols(Q2data3, unemployment_rate~retail + treated + treated*retail, vcov='hetero')
+etable(Q2analysis3, vcov='hetero')
 ```
 
 These results do not alter the previous findings. The difference in the effect of COVID on unemployment in the retail industry does not appear to differ from selected industries above as compared to all "non-retail" industries used before.
