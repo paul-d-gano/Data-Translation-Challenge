@@ -1,5 +1,5 @@
 ---
-title: "Data Translation Project"
+title: "Question 2"
 author: "Liev Haroche"
 date: "Sys.Date()"
 output: html_document
@@ -43,22 +43,22 @@ Note that the `echo = FALSE` parameter was added to the code chunk to prevent pr
 ggplot(group_by(df, retail), aes(x=Date, y=unemployment_rate)) + geom_point(aes(color=factor(retail)))
 ```
 ```{r}
-reg1 <- feols(df, unemployment_rate~treated + retail + treated*retail)
-etable(reg1)
+reg1 <- feols(df, unemployment_rate~treated + retail + treated*retail, vcov='hetero')
+etable(reg1, vcov='hetero')
 ```
 From the above regression results we see that although the retail sector was hit harder by the COVID-19 recession as measured by increased unemployment, (0.0009 significant at the 0.001 level) the difference is probably not substantively significant. This result is somewhat surprising considering retail was generally presented as one of the hardest hit sectors early on. But the above results might be somewhat misleading since the "treated" period includes time after the recession (which the graph above suggests was relatively short) was declared over. By limiting our analysis to only the first three months we may get a better idea of the initial shock brought on by the pandemic.
 
 ```{r}
 df2 <- mutate(df, treated=(Date > '2020-03-01' & Date < '2020-06-01'))
-reg2 <- feols(df2, unemployment_rate~treated + retail + treated*retail)
-etable(reg2)
+reg2 <- feols(df2, unemployment_rate~treated + retail + treated*retail, vcov='hetero')
+etable(reg2, vcov='hetero')
 ```
 The above results appear to confirm that the difference in the effect of COVID on unemployment in the retail sector was more significant in the first three months than in the overall post period. Taken together, these results suggest that although retail may have been hit harder initially during the first few months of the pandemic and lockdowns, a rapid recovery in employment closed the difference between retail and other industries relatively quickly.
 We may also be interested in a comparison between retail (an industry we expect to be influenced more by COVID) and industries like information services, education, health care, and finance which may have experience less of a decline (either as a result of their adaptability to remote work or their essential nature).
 
 ```{r}
 df3 <- filter(df2, indname %in% c('Retail Trade', 'Information', 'Educational Services, and Health Care and Social Assistance', 'Finance and Insurance, and Real Estate and Rental and Leasing'))
-reg3 <- feols(df3, unemployment_rate~retail + treated + treated*retail)
-etable(reg3)
+reg3 <- feols(df3, unemployment_rate~retail + treated + treated*retail, vcov='hetero')
+etable(reg3, vcov='hetero')
 ```
 These results do not alter the previous findings. The difference in the effect of COVID on unemployment in the retail industry does not appear to differ from selected industries above as compared to all "non-retail" industries used before.
