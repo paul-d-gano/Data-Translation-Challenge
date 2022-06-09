@@ -1,1 +1,0 @@
-# Data-Translation-Challenge
