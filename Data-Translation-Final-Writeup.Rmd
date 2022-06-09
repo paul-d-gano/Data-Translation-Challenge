@@ -1,0 +1,295 @@
+---
+title: "Data Translation Project: The Effect of Covid on the Retail Industry"
+author: "Maxwell Nicely, Liev Haroche, Brian Thomas, Madelyn Subali, Arshdeep Brar, Paul Gano"
+date: '2022-06-08'
+output: html_document
+---
+
+## Introduction and Loading Data
+
+In late 2019 concern's were focused on the coming presidential election rather than a newly announced novel respiratory disease in China. But as we all know, come March 2020, this virus had fundamentally changed life the world over. Our primary interest is it's effect on the U.S.A retail employees. Specifically the three questions we will be asking are, how has COVID-19 impacted the employment rate in retail, how has the retail industry been impacted compared to other industries, and who is still working and able to spend money.
+
+We will be using regression analysis to estimate the effects caused by the start of COVID-19 in the US (March 2020). As lock downs began partway through March, this analysis will treat the month as the start. We will be limiting our analysis to 2019 through early 2022.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Loading Data
+
+```{r}
+library(ipumsr)
+library(tidyverse)
+library(fixest)
+library(lubridate)
+library(vtable)
+library(purrr)
+library(multcomp)
+library(rdrobust)
+```
+
+
+```{r}
+ddi <- read_ipums_ddi('cps_00001.xml')
+data <- read_ipums_micro(ddi)
+ddi2 <- read_ipums_ddi('cps_00002.xml')
+data2 <- read_ipums_micro(ddi2)
+industry_codes <- read_csv('indnames.csv')
+```
+## Question 1
+### How has COVID affected the health of the retail industry, as measured by employment?
+
+### Data Cleaning
+
+Looking at retail employment we limit our data to relevant industry codes and only employees in the labor force.
+
+```{r}
+#filter out industries
+Q1data <- data %>% filter(IND > 4670 & IND < 5790)
+
+#filter out not in labor force
+Q1data <- Q1data %>% filter(EMPSTAT < 30)
+```
+
+To make our future commands easier, we will now create a date value by combining the `YEAR` and `MONTH` values.
+
+```{r}
+Q1data <- Q1data %>% mutate(DATE = ym (paste0(YEAR, MONTH)))
+```
+
+Now there are a few date-based variables we have to make, such as a binary variable for months that were during the pandemic versus not, and one for months during Christmas season or not. We will be controlling for the Christmas bump in our regression analysis so It doesn't make COVIDs effect positivily biased.
+
+```{r}
+#creating covid variable
+Q1data <- Q1data %>% mutate(COVID = (DATE > '2020-03-01'))
+
+#creating Christmas variable
+Q1data <- Q1data %>% mutate(XMAS = MONTH >= 11)
+```
+
+Now we need to create a categorical variable for `RACE`, since the original data gives a numerical value for one's race. Controlling for race in our regression analysis will show us if there were significant differences in impact.
+
+```{r}
+Q1data$race <- as.factor(ifelse(Q1data$RACE == 100, 'White',
+                           ifelse(Q1data$RACE == 200, 'Black',
+                           ifelse(Q1data$RACE == 300, 'American Indian/Aleut/Eskimo',
+                           ifelse(Q1data$RACE >= 650 & Q1data$RACE <= 652, 'Asian or Pacific Islander',
+                           ifelse(Q1data$RACE == 700, 'Other (single race)',
+                           ifelse(Q1data$RACE >= 801, 'Two or More',NA)))))))
+```
+
+Last, we need to create an unemployment rate variable.
+
+```{r}
+Q1data <- Q1data %>%
+  group_by(DATE) %>%
+  mutate(UnemploymentRate = mean(EMPSTAT %in% c(20,21,22)))
+```
+
+### Visualization
+
+Now that we have created all the variables we need, we can look at a plot of our data.
+
+```{r}
+Q1plot <- ggplot(Q1data, aes(DATE, UnemploymentRate*100)) + geom_point() + geom_vline(xintercept = as.numeric(as.Date('2020-03-01')))
+
+Q1plot + ggtitle("Retail Unemployment Rate Over Time (2019-2022)") + xlab('Year') +ylab('Unemployment Rate (%)')
+```
+
+As we can see from the graph, there is a sharp increase in the unemployment rate with the largest spike occuring in April. We can also clearly see the Christmas effect with a dip occurring at the end of each year and then sharply increasing in January.
+
+### Regression Models
+
+In our first model we will be controlling for variables we think will effect the employment rate such as Age and Race. We also wanted to eliminate variance due to differenes across time such as the christmas bump.
+
+```{r}
+Q1analysis <- feols(UnemploymentRate ~  DATE + COVID + AGE + race + XMAS, data = Q1data)
+etable(Q1analysis)
+```
+From our regression, the time after covid began (from April 2020 and on in our data) had an increase of 6.51% in the unemployment rate for inidividuals of the same race and age at the same time of year. We also see that Age is significant in unemployment but the coeffcient is so small as to not impact much. And while the race variables are not significant on their own, if we run a joint significance test we will see the p-value is less than an alpha of .05.
+
+```{r}
+wald(Q1analysis, "race")
+```
+The next two analysis we wanted to see if COVID-19 had a different effect based on the race and age of individuals. We used interaction terms to see the unit change.
+
+```{r}
+Q1analysis1 <- feols(UnemploymentRate ~ DATE + COVID + AGE + race + XMAS + COVID:race, data = Q1data)
+etable(Q1analysis1)
+```
+Similar result from previous one for covid impact. Interesting decrease in unemployment rate from `COVIDTRUE x raceAsianorPAcificIslander` and `COVIDTRUE x raceBlack` while there was a slight increase in `COVIDTRUE x raceTwoorMore` and `COVIDTRUE x raceWhite`.
+
+```{r}
+Q1analysis2 <- feols(UnemploymentRate ~ DATE + race + XMAS + COVID + AGE + COVID:AGE, data = Q1data)
+etable(Q1analysis2)
+```
+Similar impact from covid as other two. After covid, we see a slight increase in the impact of `AGE` on the unemployment rate. 
+
+## Question 2
+### How has retail fared relative to other industries?
+
+### Data Cleaning
+
+```{r}
+Q2data <- mutate(data2, Date=ym (paste0(YEAR, MONTH)))
+Q2data <- inner_join(Q2data, industry_codes, by=c('IND' = 'ind'))
+Q2data <- mutate(Q2data, treated=(Date > '2020-03-01'))
+Q2data <- Q2data %>% mutate(unemployed = (EMPSTAT %in% c(20, 21, 22)))
+Q2data <- mutate(Q2data, retail=indname=='Retail Trade')
+Q2data <- Q2data %>% group_by(indname=='Retail Trade', Date) %>%
+  mutate(unemployment_rate=mean(unemployed))
+```
+
+Joining up data to industry names so we can filter between retail and other industries.
+
+### Visulization
+
+```{r}
+ggplot(group_by(Q2data, retail), aes(x=Date, y=unemployment_rate)) + geom_point(aes(color=factor(retail))) + geom_vline(xintercept = as.numeric(as.Date('2020-03-01'))) + labs(title ="Retail Unemployment compared to Overall", x ="Year", y = "Unemployment Rate (%)", color = "Retail")
+```
+In 2019 we can see that retail is slightly higher than the average unemployment rate. But that difference becomes much wider at the start of the pandemic. There is what appears to be a quick recovery, as the retail unemployment rate drops below overall unemployment during points in 2021.This could be attributable to the fact many retail jobs were considered essential services, requiring employees to be present where other industries could instead keep their work forces low during the recovery. Beginning in 2021 there is a return to form in the gap as unemployment stabilizes near pre-covid levels.
+
+### Regressions Models
+
+```{r}
+Q2analysis1 <- feols(Q2data, unemployment_rate~treated + retail + treated*retail)
+etable(Q2analysis1)
+```
+The unemployment rate for retail industries post covid was .01% greater compared to other industries.
+
+From the above regression results we see that although the retail sector was hit harder by the COVID-19 recession as measured by increased unemployment, (0.0009 significant at the 0.001 level) the difference is probably not substantively significant. This result is somewhat surprising considering retail was generally presented as one of the hardest hit sectors early on. But the above results might be somewhat misleading since the "treated" period includes time after the recession (which the graph above suggests was relatively short) was declared over. By limiting our analysis to only the first three months we may get a better idea of the initial shock brought on by the pandemic.
+
+```{r}
+Q2data2 <- mutate(Q2data, treated=(Date > '2020-03-01' & Date < '2020-06-01'))
+Q2analysis2 <- feols(Q2data2, unemployment_rate~treated + retail + treated*retail)
+etable(Q2analysis2)
+```
+For the immediate months after COVID-19 retail industries had a 2.8% higher unemployment rate than other industries.
+
+The above results appear to confirm that the difference in the effect of COVID on unemployment in the retail sector was more significant in the first three months than in the overall post period. Taken together, these results suggest that although retail may have been hit harder initially during the first few months of the pandemic and lockdowns, a rapid recovery in employment closed the difference between retail and other industries relatively quickly.
+We may also be interested in a comparison between retail (an industry we expect to be influenced more by COVID) and industries like information services, education, health care, and finance which may have experience less of a decline (either as a result of their adaptability to remote work or their essential nature).
+
+```{r}
+Q2data3 <- filter(Q2data2, indname %in% c('Retail Trade', 'Information', 'Educational Services, and Health Care and Social Assistance', 'Finance and Insurance, and Real Estate and Rental and Leasing'))
+Q2analysis3 <- feols(Q2data3, unemployment_rate~retail + treated + treated*retail)
+etable(Q2analysis3)
+```
+
+These results do not alter the previous findings. The difference in the effect of COVID on unemployment in the retail industry does not appear to differ from selected industries above as compared to all "non-retail" industries used before.
+
+## Question 3
+### What has changed about who is working and earning money?
+
+### Data Cleaning
+
+```{r}
+cleandt <- data2 %>% dplyr :: select(YEAR, MONTH, EMPSTAT, OCC, IND, UHRSWORK1, WKSTAT)
+cleandt <- cleandt %>% drop_na()
+cleandt <- cleandt %>% mutate(HRSMAIN = UHRSWORK1)
+# We filter for Employment Status at 10 (employed) and 20:22 (unemployed)
+cleandt <- cleandt %>% filter(EMPSTAT %in% c(10,20:22))
+# Denotes for the different months in the years of 2019 to 2022
+cleandt <- cleandt %>% mutate(date = ym(paste(YEAR,MONTH)))
+
+# Join the Industry names and cleandt to align broader Industries
+cleandt <- cleandt %>% rename(ind = IND)
+finaldt <- full_join(cleandt, industry_codes)
+
+# Using binary variables where the industry of 'Retail Trade' will be 1, and others will be 0.
+finaldt$industry <- ifelse(finaldt$indname == 'Retail Trade', 1, 0)
+emp_rate_by_month <- finaldt %>%
+  group_by(industry, date) %>%
+  summarize(emp_rate = 1 - mean(EMPSTAT %in% 20:22))
+
+emp_rate_by_month <- emp_rate_by_month %>% 
+  drop_na(industry) %>%
+  drop_na(date)
+```
+
+### Visualization 
+
+Visualize the difference in the court of employed and unemployed people between those of the different industries. Since we want to see the impact of retail, we will group 'Others' as non-retail industries. The cutoff will be March 2020, when the COVID-19 happen.
+
+```{r}
+emp_rate_by_month <- emp_rate_by_month %>% mutate(industry= as.factor(industry))
+
+levels(emp_rate_by_month$industry) <- list("Others" = "0",       
+                                          "Retail" = "1")
+emp_rate_by_month %>% ggplot(aes(x = date, y = emp_rate, color = industry)) + geom_point() + labs(y = "Employment Rate", x = "Date") + 
+  geom_vline(xintercept = as.Date("2020-03-01"))
+```
+
+Here we see that there is a steep decrease in employment rate when COVID-19 happen in March 2020, that causes a drop in employment. It seems like in Retail industry, it is actually doing worse compared to the other industry as we see the average on employment rate after COVID-19 hits is around 0.86, whereas retail industry's employment rate drops as far as to 0.81. 
+
+
+```{r}
+# Creating bins of the Emp_Rate_By_Month
+bindata <- emp_rate_by_month  %>% mutate(emp_bins = cut(emp_rate, breaks = 36))
+```
+
+Below is the graph to show the distribution of employment rate. Using March 2020 as the cutoff, the *xintercept = '(0.952,0.955]'*. As of before COVID-19, we see that there is a stagnant or relatively flat distribution on the employment rate (count). And even after COVID-19, the data does not show discontinuity in the distribution where we see a huge jump. Thus, the employment rate variables are not manipulated - where some people may not report their employment status.
+
+```{r, echo=FALSE}
+bindata %>% ggplot(aes(x = emp_bins)) + geom_bar() + labs(x = "Employed Rate Bins") + geom_vline(xintercept = '(0.952,0.955]') + theme(axis.text.x = element_blank())
+```
+
+### Regression Models
+
+This will help select a window and weighting kernel to weight observations more near the cutoff. This is done by mutating two new variables called *pre-COVID* and *post-COVID* to access the effect of COVID on employment rate.
+
+```{r}
+treatment <- bindata %>% mutate(precovid = date < as.Date("2020-03-01"), postcovid = date > as.Date("2020-03-01"))
+
+#use feols to look at a regression model to explain the difference
+precovid <- feols(emp_rate ~ precovid, data = treatment)
+
+postcovid <- feols(emp_rate ~ postcovid, data = treatment)
+etable(precovid, postcovid, vcov = 'hetero')
+``` 
+
+In *precovid*, we are looking at the impact of before COVID-19 happen which is before March 2020, where we see an increase in employment rate by 2.7%. 
+
+In *postcovid*, we are looking at how the overall impact of COVID-19 on employment rate. After March 2020, we see there is a decrease in employment rate by 2.6%. 
+
+Now we want to look at the effect COVID-19 had on employment rate during when vaccines did not exist and how the employment rate improves since the launch of vaccines. 
+
+```{r}
+novaccinestreat <- treatment %>% filter(date < as.Date("2021-01-01"))
+covidnovaccines <- feols(emp_rate ~ postcovid, data = novaccinestreat)
+
+treatment <- treatment %>% mutate(postvaccines = date > as.Date("2021-01-01"))
+postvaccines <- feols(emp_rate ~ postvaccines, data = treatment)
+etable(covidnovaccines, postvaccines)
+
+```
+
+In *novaccinestreat*, we are looking between when COVID-19 happen and before the vaccination was released, to see the impact of COVID-19 employment which has a 5% decrease. 
+
+In *postvacciness*, we see that there is an overall positive increase in terms of employment rate after vaccination was released on early 2021, thus an increase by 2.2% on employment rate. 
+
+Now we want to look further at whether or not non-retail industries took a harder hit from COVID and benefited from vaccines. 
+
+```{r}
+novaccinesind <- feols(emp_rate ~ postcovid*industry, data = novaccinestreat)
+
+postvaccinesind <- feols(emp_rate ~ postvaccines*industry, data = treatment)
+etable(novaccinesind, postvaccinesind)
+```
+
+In *novacind* and *postvaccinesind*, the effect on non-retail industry and retail industry after COVID-19 is 2%, and after the vaccine is 1% thus the change between the retail and non-retail industry subjectively is quite large because the non-retail industry growth and employment rate is double that of the retail employment rate. 
+
+### Visualization 2
+Taking a look at the visualization again with linear lines explaining the effect. We see that from the graph below, the employment rate is stagnant throughout the year before March 2020. As of after March 2020, we see that employment rate for both Retail and non-retail industry keeps on increasing throughout the year. 
+
+```{r}
+treatment %>% ggplot(aes(x = date, y = emp_rate, color = industry)) + geom_point() + labs(y = "Employment Rate", x = "Date") +
+  geom_vline(xintercept = as.Date('2020-03-01')) + geom_smooth(aes(group = precovid), method = 'lm', se = FALSE)
+```
+
+## Conclusion
+
+Overall, this suggests that COVID-19 had a hard impact on employment when the lockdowns happened, and people started getting laid off. However, after the vaccine was released and the economy started improving, we see that the employment rate just keeps on increasing no matter the industry as both retail and non-retail industry move in a similar direction. Although the biggest difference is that the employment rate reflected by the impact of COVID has hit the retail industry compared to that of the other industries. This would mean that as of currently the people employed in the retail industry are behind in terms of economic power and monetary value due to lower employment rate compared to people employed in other industries.
+
+While it seems obvious that COVID has had an impact on employment, where and why those impacts differ is the harder question to answer. The retail industry has had a rough time, seeing a 6% increase in unemployment post corona. To put this into perspective there are roughly 10 million cashier and salespersons jobs in the U.S. If 6% of those people were laid off, that would be over half a million workers left without a form of income.
+
+From our analysis of the retail unemployment vs other industries, there was a swift recovery of employment in the overall labor force. This could be viewed positively as showing quick implementation of PPE protocols which allowed workers to return to their employment. But there is also a need to further analyze the changes in the labor forces overall. Workers could have chosen to leave th retail labor force, seeking better opportunities elsewhere or just retiring. This could create an effect were the unemployment rate drops due to a tighter labor market rather than more people being employed.
