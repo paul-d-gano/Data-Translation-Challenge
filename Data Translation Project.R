@@ -51,11 +51,10 @@ finaldt$industry <- ifelse(finaldt$indname == 'Retail Trade', 1, 0)
 emp_rate_by_month <- finaldt %>%
   group_by(industry, date) %>%
   summarize(emp_rate = 1 - mean(EMPSTAT %in% 20:22))
-vtable(emp_rate_by_month)
-sumtable(emp_rate_by_month)
 emp_rate_by_month <- emp_rate_by_month %>% 
   drop_na(industry) %>%
   drop_na(date)
+emp_rate_by_month <- emp_rate_by_month %>% mutate(industry= as.factor(industry))
 emp_rate_by_month %>% ggplot(aes(x = date, y = emp_rate, color = industry)) + geom_point() + labs(y = "Employed Rate", x = "Date") + 
   geom_vline(xintercept = as.Date("2020-03-01"))
 
@@ -105,4 +104,33 @@ etable(postvacs, postvacsind)
 
 # Step 6: take a look at the ggplot again with linear lines explaining the effect
 ggplot(treatment, aes(x = date, y = emp_rate, color = industry)) + geom_point() + labs(y = "Employment Rate", x = "Date") + 
+  geom_vline(xintercept = as.Date('2020-03-01')) + geom_smooth(aes(group = precovid), method = 'lm', se = FALSE)
+
+# Extra: Let's see what the graph would look like if we had other industries like finance and transportation
+finance <- full_join(cleandt, indnames)
+finance$industry <- ifelse(finance$indname == 'Finance and Insurance, and Real Estate and Rental and Leasing', 1, 0)
+financedt <- finance %>%
+  group_by(industry, date) %>%
+  summarize(emp_rate = 1 - mean(EMPSTAT %in% 20:22))
+financedt <- financedt %>% 
+  drop_na(industry) %>%
+  drop_na(date)
+financedt <- financedt %>% mutate(industry= as.factor(industry))
+financedt <- financedt %>% mutate(precovid = date < as.Date("2020-03-01"))
+
+transport <- full_join(cleandt, indnames)
+transport$industry <- ifelse(transport$indname == 'Transportation and Warehousing, and Utilities', 1, 0)
+transportdt <- transport %>%
+  group_by(industry, date) %>%
+  summarize(emp_rate = 1 - mean(EMPSTAT %in% 20:22))
+transportdt <- transportdt %>% 
+  drop_na(industry) %>%
+  drop_na(date)
+transportdt <- transportdt %>% mutate(industry= as.factor(industry))
+transportdt <- transportdt %>% mutate(precovid = date < as.Date("2020-03-01"))
+
+# Extra Visualizations of the other two markets finance and transportation at the effect of Covid
+ggplot(financedt, aes(x = date, y = emp_rate, color = industry)) + geom_point() + labs(y = "Employment Rate", x = "Date") + 
+  geom_vline(xintercept = as.Date('2020-03-01')) + geom_smooth(aes(group = precovid), method = 'lm', se = FALSE)
+ggplot(transportdt, aes(x = date, y = emp_rate, color = industry)) + geom_point() + labs(y = "Employment Rate", x = "Date") + 
   geom_vline(xintercept = as.Date('2020-03-01')) + geom_smooth(aes(group = precovid), method = 'lm', se = FALSE)
